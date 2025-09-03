@@ -280,7 +280,7 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
    * Get career initiatives from Notion
    */
   private async getCareerInitiatives(args: Record<string, unknown>): Promise<MCPToolResult> {
-    const databaseId = process.env.NOTION_INITIATIVES_DB_ID;
+    const databaseId = process.env['NOTION_INITIATIVES_DB_ID'];
     if (!databaseId) {
       throw this.createError(
         MCPErrorCode.INTERNAL_ERROR,
@@ -291,19 +291,19 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
     try {
       const filter: any = {};
       
-      if (args.status) {
+      if (args['status']) {
         filter.and = filter.and || [];
         filter.and.push({
           property: 'Status',
-          status: { equals: args.status }
+          status: { equals: args['status'] }
         });
       }
 
-      if (args.priority) {
+      if (args['priority']) {
         filter.and = filter.and || [];
         filter.and.push({
           property: 'Priority',
-          select: { equals: args.priority }
+          select: { equals: args['priority'] }
         });
       }
 
@@ -314,7 +314,7 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
           { property: 'Priority', direction: 'ascending' },
           { property: 'Date Started', direction: 'descending' }
         ],
-        page_size: Math.min(Number(args.limit) || 20, 100)
+        page_size: Math.min(Number(args['limit']) || 20, 100)
       });
 
       const initiatives = response.results.map(page => this.formatInitiative(page));
@@ -342,7 +342,7 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
    * Get achievements from Notion
    */
   private async getAchievements(args: Record<string, unknown>): Promise<MCPToolResult> {
-    const databaseId = process.env.NOTION_ACHIEVEMENTS_DB_ID;
+    const databaseId = process.env['NOTION_ACHIEVEMENTS_DB_ID'];
     if (!databaseId) {
       throw this.createError(
         MCPErrorCode.INTERNAL_ERROR,
@@ -353,11 +353,11 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
     try {
       const filter: any = {};
       
-      if (args.category) {
+      if (args['category']) {
         filter.and = filter.and || [];
         filter.and.push({
           property: 'Category',
-          select: { equals: args.category }
+          select: { equals: args['category'] }
         });
       }
 
@@ -367,7 +367,7 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
         sorts: [
           { property: 'Date', direction: 'descending' }
         ],
-        page_size: Math.min(Number(args.limit) || 20, 100)
+        page_size: Math.min(Number(args['limit']) || 20, 100)
       });
 
       const achievements = response.results.map(page => this.formatAchievement(page));
@@ -395,7 +395,7 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
    * Get tasks from Notion
    */
   private async getTasks(args: Record<string, unknown>): Promise<MCPToolResult> {
-    const databaseId = process.env.NOTION_TASKS_DB_ID;
+    const databaseId = process.env['NOTION_TASKS_DB_ID'];
     if (!databaseId) {
       throw this.createError(
         MCPErrorCode.INTERNAL_ERROR,
@@ -406,19 +406,19 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
     try {
       const filter: any = {};
       
-      if (args.status) {
+      if (args['status']) {
         filter.and = filter.and || [];
         filter.and.push({
           property: 'Status',
-          status: { equals: args.status }
+          status: { equals: args['status'] }
         });
       }
 
-      if (args.priority) {
+      if (args['priority']) {
         filter.and = filter.and || [];
         filter.and.push({
           property: 'Priority',
-          select: { equals: args.priority }
+          select: { equals: args['priority'] }
         });
       }
 
@@ -429,7 +429,7 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
           { property: 'Due Date', direction: 'ascending' },
           { property: 'Priority', direction: 'ascending' }
         ],
-        page_size: Math.min(Number(args.limit) || 20, 100)
+        page_size: Math.min(Number(args['limit']) || 20, 100)
       });
 
       const tasks = response.results.map(page => this.formatTask(page));
@@ -457,9 +457,9 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
    * Search across career data
    */
   private async searchCareerData(args: Record<string, unknown>): Promise<MCPToolResult> {
-    const query = args.query as string;
-    const dataTypes = (args.data_types as string[]) || ['initiatives', 'achievements', 'tasks'];
-    
+    const query = args['query'] as string;
+    const dataTypes = (args['data_types'] as string[]) || ['initiatives', 'achievements', 'tasks'];
+
     const results: any = {
       query,
       results: {}
@@ -470,9 +470,9 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
       try {
         switch (dataType) {
           case 'initiatives':
-            if (process.env.NOTION_INITIATIVES_DB_ID) {
+            if (process.env['NOTION_INITIATIVES_DB_ID']) {
               const response = await this.notionClient.databases.query({
-                database_id: process.env.NOTION_INITIATIVES_DB_ID,
+                database_id: process.env['NOTION_INITIATIVES_DB_ID'],
                 filter: {
                   or: [
                     { property: 'Name', title: { contains: query } },
@@ -486,9 +486,9 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
             break;
 
           case 'achievements':
-            if (process.env.NOTION_ACHIEVEMENTS_DB_ID) {
+            if (process.env['NOTION_ACHIEVEMENTS_DB_ID']) {
               const response = await this.notionClient.databases.query({
-                database_id: process.env.NOTION_ACHIEVEMENTS_DB_ID,
+                database_id: process.env['NOTION_ACHIEVEMENTS_DB_ID'],
                 filter: {
                   or: [
                     { property: 'Achievement', title: { contains: query } },
@@ -502,9 +502,9 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
             break;
 
           case 'tasks':
-            if (process.env.NOTION_TASKS_DB_ID) {
+            if (process.env['NOTION_TASKS_DB_ID']) {
               const response = await this.notionClient.databases.query({
-                database_id: process.env.NOTION_TASKS_DB_ID,
+                database_id: process.env['NOTION_TASKS_DB_ID'],
                 filter: {
                   property: 'Task',
                   title: { contains: query }
@@ -537,8 +537,8 @@ export class ToolsCallHandler extends BaseMCPHandler<'tools/call'> {
   private async getSkillAnalysis(args: Record<string, unknown>): Promise<MCPToolResult> {
     // This would implement skill analysis logic based on career data
     // For now, return a placeholder
-    const analysisType = args.analysis_type || 'frequency';
-    
+    const analysisType = args['analysis_type'] || 'frequency';
+
     const content: MCPTextContent = {
       type: 'text',
       text: JSON.stringify({

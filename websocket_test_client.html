@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Server WebSocket Tester</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js"></script>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            height: 80vh;
+        }
+        .panel {
+            border: 1px solid #333;
+            padding: 15px;
+            background: #0a0a0a;
+            border-radius: 8px;
+        }
+        .log {
+            height: 400px;
+            overflow-y: auto;
+            background: #000;
+            padding: 10px;
+            border: 1px solid #333;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            background: #004400;
+            color: #00ff00;
+            border: 1px solid #006600;
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover { background: #006600; }
+        button:disabled { 
+            background: #222; 
+            color: #666; 
+            cursor: not-allowed; 
+        }
+        input, textarea {
+            background: #111;
+            color: #00ff00;
+            border: 1px solid #333;
+            padding: 8px;
+            width: 100%;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .connected { background: #004400; border: 1px solid #006600; }
+        .disconnected { background: #440000; border: 1px solid #660000; }
+        .message-input { height: 100px; }
+        .timestamp { color: #666; font-size: 11px; }
+        .sent { color: #0088ff; }
+        .received { color: #00ff00; }
+        .error { color: #ff4444; }
+        .system { color: #ffaa00; }
+    </style>
+</head>
+<body>
+    <h1>🔌 MCP Server WebSocket Tester</h1>
+    <p>This tool tests the WebSocket connection to your MCP server. Use it to verify that the Socket.IO transport layer is working correctly.</p>
+    
+    <div class="container">
+        <div class="panel">
+            <h3>Connection & Controls</h3>
+            
+            <div id="status" class="status disconnected">
+                Status: Disconnected
+            </div>
+            
+            <div class="controls">
+                <input type="text" id="serverUrl" value="http://localhost:3000" placeholder="Server URL">
+                <button id="connectBtn" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+            
+            <h4>Quick Test Messages</h4>
+            <div class="controls">
+                <button onclick="sendMCPInitialize()" id="initBtn" disabled>Send MCP Initialize</button>
+                <button onclick="sendMCPListTools()" id="toolsBtn" disabled>List Available Tools</button>
+                <button onclick="sendMCPCallTool()" id="callBtn" disabled>Call Test Tool</button>
+                <button onclick="sendPing()" id="pingBtn" disabled>Send Ping</button>
+            </div>
+            
+            <h4>Custom Message</h4>
+            <textarea id="customMessage" class="message-input" placeholder="Enter JSON message here...">{
+  "jsonrpc": "2.0",
+  "id": "test_123",
+  "method": "ping",
+  "params": {}
+}</textarea>
+            <button onclick="sendCustomMessage()" id="customBtn" disabled>Send Custom Message</button>
+        </div>
+        
+        <div class="panel">
+            <h3>Message Log</h3>
+            <button onclick="clearLog()">Clear Log</button>
+            <div id="messageLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let messageId = 1;
+
+        function log(message, type = 'system') {
+            const logDiv = document.getElementById('messageLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            const buttons = ['initBtn', 'toolsBtn', 'callBtn', 'pingBtn', 'customBtn'];
+            
+            if (connected) {
+                statusDiv.textContent = 'Status: Connected ✅';
+                statusDiv.className = 'status connected';
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                buttons.forEach(id => document.getElementById(id).disabled = false);
+            } else {
+                statusDiv.textContent = 'Status: Disconnected ❌';
+                statusDiv.className = 'status disconnected';
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                buttons.forEach(id => document.getElementById(id).disabled = true);
+            }
+        }
+
+        function connect() {
+            const url = document.getElementById('serverUrl').value;
+            log(`🔌 Attempting to connect to ${url}...`);
+            
+            socket = io(url, {
+                transports: ['websocket', 'polling'],
+                timeout: 5000,
+                forceNew: true
+            });
+
+            socket.on('connect', () => {
+                log('✅ Connected to MCP server!', 'system');
+                updateStatus(true);
+            });
+
+            socket.on('disconnect', (reason) => {
+                log(`❌ Disconnected: ${reason}`, 'error');
+                updateStatus(false);
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`🚫 Connection error: ${error.message}`, 'error');
+                updateStatus(false);
+            });
+
+            // Listen for any message from server
+            socket.onAny((eventName, ...args) => {
+                log(`📥 Received event "${eventName}": ${JSON.stringify(args, null, 2)}`, 'received');
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                log('👋 Disconnected from server', 'system');
+                updateStatus(false);
+            }
+        }
+
+        function sendMessage(message) {
+            if (!socket || !socket.connected) {
+                log('❌ Not connected to server', 'error');
+                return;
+            }
+
+            log(`📤 Sending: ${JSON.stringify(message, null, 2)}`, 'sent');
+            
+            // Send as MCP protocol message
+            socket.emit('message', message);
+        }
+
+        function sendMCPInitialize() {
+            const message = {
+                jsonrpc: "2.0",
+                id: messageId++,
+                method: "initialize",
+                params: {
+                    protocolVersion: "2024-11-05",
+                    capabilities: {
+                        roots: {
+                            listChanged: true
+                        }
+                    },
+                    clientInfo: {
+                        name: "WebSocket Test Client",
+                        version: "1.0.0"
+                    }
+                }
+            };
+            sendMessage(message);
+        }
+
+        function sendMCPListTools() {
+            const message = {
+                jsonrpc: "2.0",
+                id: messageId++,
+                method: "tools/list",
+                params: {}
+            };
+            sendMessage(message);
+        }
+
+        function sendMCPCallTool() {
+            const message = {
+                jsonrpc: "2.0",
+                id: messageId++,
+                method: "tools/call",
+                params: {
+                    name: "get_achievements",
+                    arguments: {
+                        category: "Technical",
+                        limit: 5
+                    }
+                }
+            };
+            sendMessage(message);
+        }
+
+        function sendPing() {
+            const message = {
+                jsonrpc: "2.0",
+                id: messageId++,
+                method: "ping",
+                params: {}
+            };
+            sendMessage(message);
+        }
+
+        function sendCustomMessage() {
+            const customText = document.getElementById('customMessage').value;
+            try {
+                const message = JSON.parse(customText);
+                sendMessage(message);
+            } catch (error) {
+                log(`❌ Invalid JSON: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('messageLog').innerHTML = '';
+        }
+
+        // Initialize
+        updateStatus(false);
+        log('🚀 WebSocket test client ready. Click "Connect" to start testing!');
+    </script>
+</body>
+</html>

@@ -109,14 +109,14 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
     const message = data as Record<string, unknown>;
 
     // Validate JSON-RPC 2.0 format
-    if (message.jsonrpc !== '2.0') {
+    if (message['jsonrpc'] !== '2.0') {
       throw new MCPError(
         MCPErrorCode.INVALID_REQUEST,
         'Invalid JSON-RPC version'
       );
     }
 
-    if (!message.method || typeof message.method !== 'string') {
+    if (!message['method'] || typeof message['method'] !== 'string') {
       throw new MCPError(
         MCPErrorCode.INVALID_REQUEST,
         'Missing or invalid method field'
@@ -124,8 +124,8 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
     }
 
     this.logger.debug('Received WebSocket message', {
-      method: message.method,
-      id: message.id
+      method: message['method'],
+      id: message['id']
     });
 
     this.emit('message', message as JSONRPCRequest);

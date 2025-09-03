@@ -98,7 +98,7 @@ export abstract class BaseMCPHandler<T extends MCPMethod> {
         error: {
           code: MCPErrorCode.INTERNAL_ERROR,
           message: 'Internal server error',
-          data: process.env.NODE_ENV === 'development' ? {
+          data: process.env['NODE_ENV'] === 'development' ? {
             originalError: error instanceof Error ? error.message : String(error)
           } : undefined
         }

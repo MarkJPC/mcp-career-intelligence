@@ -29,7 +29,7 @@ export class ResourcesListHandler extends BaseMCPHandler<'resources/list'> {
     });
   }
 
-  protected async execute(): Promise<{ resources: MCPResource[]; nextCursor?: string }> {
+  protected async execute(): Promise<{ resources: MCPResource[]; nextCursor: string }> {
     const resources: MCPResource[] = [
       {
         uri: 'notion://initiatives',
@@ -61,7 +61,7 @@ export class ResourcesListHandler extends BaseMCPHandler<'resources/list'> {
 
     return {
       resources,
-      nextCursor: undefined
+      nextCursor: 'cursor-123'
     };
   }
 }

@@ -137,6 +137,7 @@ export class MCPCareerIntelligenceServer {
    * Set up Notion API client with proper error handling
    */
   private setupNotionClient(): void {
+    // use the notion api to get information from notion
     const notionToken = process.env['NOTION_API_KEY'];
     if (!notionToken) {
       throw new Error('NOTION_API_KEY environment variable is required');
@@ -318,6 +319,7 @@ export class MCPCareerIntelligenceServer {
       maxHttpBufferSize: this.config.maxRequestSize || 10 * 1024 * 1024 // 10MB
     });
 
+    // listen for client connections
     this.io.on('connection', (socket) => {
       this.logger.info('Socket.IO client connected', {
         socketId: socket.id,
