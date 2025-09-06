@@ -1,0 +1,51 @@
+{
+  "compilerOptions": {
+    // File Layout
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "target": "ES2020",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    
+    // Node.js Environment (Essential for database work!)
+    "lib": ["ES2020"],
+    "types": ["node"],
+    "moduleResolution": "node",
+    
+    // Database & File System Support
+    "allowJs": true,
+    "checkJs": false,
+    
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    
+    // Stricter Typechecking (but practical for database work)
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    
+    // Skip lib checking for faster builds with node_modules
+    "skipLibCheck": true,
+    
+    // Required for isolated modules
+    "isolatedModules": true,
+    "moduleDetection": "force"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}
