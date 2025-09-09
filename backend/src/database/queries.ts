@@ -408,3 +408,5 @@ export async function testRepositoryPattern() {
     console.error('❌ Repository test failed:', error);
   }
 }
+
+export { DatabaseQuery };

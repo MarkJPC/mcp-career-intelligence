@@ -1,4 +1,4 @@
-import { initializeDatabase, seedDatabase, closeDatabase } from './database';
+import { initializeDatabase, seedDatabase, closeDatabase } from '../database/database';
 
 async function testDatabase() {
   try {

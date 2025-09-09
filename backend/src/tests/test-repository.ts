@@ -1,5 +1,5 @@
-import { initializeDatabase, seedDatabase } from './database';
-import { testRepositoryPattern, PortfolioService } from './queries';
+import { initializeDatabase, seedDatabase } from '../database/database';
+import { testRepositoryPattern, PortfolioService } from '../database/queries';
 
 async function demonstrateArchitecture() {
   try {
