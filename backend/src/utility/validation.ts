@@ -11,7 +11,7 @@ export class ValidationError extends Error {
 };
 
 // input checking
-export const valdateRequired = (value: any, fieldName: string): void => {
+export const validateRequired = (value: any, fieldName: string): void => {
     // check if value exists and isn't empty string
     if (!value || (typeof value == 'string' && value.trim() == '')) {
         throw new ValidationError(`Missing required field: ${fieldName}`);
