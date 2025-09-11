@@ -12,7 +12,7 @@ export class ProjectCrudRepository {
             validateRequired(input.role, 'Role');
             validateRequired(input.start_date, 'Start Date');
 
-            // format specific validation
+            // format specific validation for the date
             if (!validateDateFormat(input.start_date)) {
                 throw new ValidationError('Start Date must be in YYYY-MM-DD format');
             }
@@ -29,8 +29,45 @@ export class ProjectCrudRepository {
             // step 2: sql construction
             // build the INSERT statement dynamically based on provided fields
             const sql = `
-                INSERT    
-            `
+                INSERT INTO projects (
+                    title, company, role, start_date, end_date, status, description, impact_metric, github_url, live_url, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            `;
+
+            // step 3: parameter mapping
+            const params = [
+                input.title,
+                input.company,
+                input.role,
+                input.start_date,
+                input.end_date || null,
+                input.status || 'completed',
+                input.description || null,
+                input.impact_metric || null,
+                input.github_url || null,
+                input.live_url || null
+            ];
+
+            // step 4: database execution
+            const result = await DatabaseQuery.run(sql, params);
+
+            // step 5: process the result
+            if (result.success && result.data?.id) {
+                console.log(`Project created with ID: ${result.data.id}`);
+                return {
+                    success: true,
+                    data: result.data.id, // return the new project's ID
+                };
+            } else {
+                throw new Error('Failed to create project');
+            }
+        } catch (error) {
+            // step 6: error handling
+            console.error('Error creating project:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
         }
     }
 }
