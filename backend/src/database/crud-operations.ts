@@ -1,9 +1,10 @@
-import { CreateProjectInput, CrudResponse } from '../types/crud';
+import { CreateProjectInput, CrudResponse, UpdateProjectInput, UpdateAchievementInput, CreateAchievementInput, CreateTechnologyInput } from '../types/crud';
 import { validateRequired, validateDateFormat, ValidationError, validateURL } from '../utility/validation';
 import { DatabaseQuery } from './queries';
 
 export class ProjectCrudRepository {
 
+    // CREATE: Add new project
     static async create(input: CreateProjectInput): Promise<CrudResponse<number>> {
         try {
             // step 1: validate everything
@@ -68,6 +69,27 @@ export class ProjectCrudRepository {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
             };
+        }
+    }
+
+    // UPDATE: Update existing project
+    static async update(input: UpdateProjectInput): Promise<CrudResponse<boolean>> {
+        try {
+            // validate the presence of ID
+            validateRequired(input.id, 'Project ID');
+
+            // build dynamic update SQL query based on provided fields
+            const updateFields: string[] = [];
+            const params: any[] = [];
+
+            // check if each value exists, and if so, add to the update statement
+            if (input.title !== undefined) {
+                validateRequired(input.title, 'Title');
+                updateFields.push('title = ?');
+                params.push(input.title);
+            }
+
+
         }
     }
 }
