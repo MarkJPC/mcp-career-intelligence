@@ -9,7 +9,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test-db": "ts-node src/test-db.ts",
+    "test-db": "ts-node src/tests/test-db.ts",
+    "test-crud": "ts-node src/test-crud.ts",
     "db:init": "ts-node src/database.ts",
     "db:seed": "ts-node src/scripts/seed.ts",
     "test-architecture": "ts-node src/test-repository.ts"

@@ -41,7 +41,7 @@
   },
   "include": [
     "src/**/*"
-  ],
+, "src/types/.ts"  ],
   "exclude": [
     "node_modules",
     "dist",
