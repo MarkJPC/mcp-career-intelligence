@@ -357,6 +357,234 @@ async function testCrudOperations() {
     }
 
     // ========================================
+    // TEST 9: Project-Technology Linking Operations
+    // ========================================
+    console.log('\n🔗 TEST 9: Testing Project-Technology Linking...\n');
+
+    let linkTestProjectId: number | null = null;
+    let linkTestTech1Id: number | null = null;
+    let linkTestTech2Id: number | null = null;
+    let linkTestTech3Id: number | null = null;
+
+    // Test 9a: Create test project and technologies for linking
+    console.log('   9a. Creating test project and technologies...');
+    const linkTestProject: CreateProjectInput = {
+      title: 'Technology Linking Test Project',
+      company: 'Test Inc',
+      role: 'Full Stack Developer',
+      start_date: '2025-01-01'
+    };
+
+    const projectForLinking = await ProjectCrudRepository.create(linkTestProject);
+    if (projectForLinking.success && projectForLinking.data) {
+      linkTestProjectId = projectForLinking.data;
+      console.log(`   ✅ Test project created with ID: ${linkTestProjectId}`);
+    } else {
+      console.log(`   ❌ Failed to create test project: ${projectForLinking.error}`);
+    }
+
+    // Create test technologies
+    const tech1 = await TechnologyCrudRepository.create({
+      name: 'React Test',
+      category: 'framework',
+      proficiency_level: 'advanced'
+    });
+    if (tech1.success && tech1.data) {
+      linkTestTech1Id = tech1.data;
+      console.log(`   ✅ Technology 1 created with ID: ${linkTestTech1Id}`);
+    }
+
+    const tech2 = await TechnologyCrudRepository.create({
+      name: 'Node.js Test',
+      category: 'framework',
+      proficiency_level: 'intermediate'
+    });
+    if (tech2.success && tech2.data) {
+      linkTestTech2Id = tech2.data;
+      console.log(`   ✅ Technology 2 created with ID: ${linkTestTech2Id}`);
+    }
+
+    const tech3 = await TechnologyCrudRepository.create({
+      name: 'PostgreSQL Test',
+      category: 'database',
+      proficiency_level: 'intermediate'
+    });
+    if (tech3.success && tech3.data) {
+      linkTestTech3Id = tech3.data;
+      console.log(`   ✅ Technology 3 created with ID: ${linkTestTech3Id}`);
+    }
+
+    // Test 9b: Link single technology to project
+    if (linkTestProjectId && linkTestTech1Id) {
+      console.log('   9b. Linking single technology to project...');
+      const linkResult = await ProjectCrudRepository.linkTechnology(
+        linkTestProjectId,
+        linkTestTech1Id,
+        'Primary frontend framework'
+      );
+      if (linkResult.success) {
+        console.log('   ✅ Technology linked successfully');
+      } else {
+        console.log(`   ❌ Technology linking failed: ${linkResult.error}`);
+      }
+    }
+
+    // Test 9c: Link same technology again (should update context)
+    if (linkTestProjectId && linkTestTech1Id) {
+      console.log('   9c. Linking same technology with different context...');
+      const relinkResult = await ProjectCrudRepository.linkTechnology(
+        linkTestProjectId,
+        linkTestTech1Id,
+        'Main UI framework'
+      );
+      if (relinkResult.success) {
+        console.log('   ✅ Context updated successfully (idempotent behavior)');
+      } else {
+        console.log(`   ❌ Relink failed: ${relinkResult.error}`);
+      }
+    }
+
+    // Test 9d: Link same technology with same context (should skip)
+    if (linkTestProjectId && linkTestTech1Id) {
+      console.log('   9d. Linking same technology with same context...');
+      const skipResult = await ProjectCrudRepository.linkTechnology(
+        linkTestProjectId,
+        linkTestTech1Id,
+        'Main UI framework'
+      );
+      if (skipResult.success) {
+        console.log('   ✅ Correctly handled duplicate link (no changes)');
+      } else {
+        console.log(`   ❌ Should have succeeded: ${skipResult.error}`);
+      }
+    }
+
+    // Test 9e: Bulk link multiple technologies
+    if (linkTestProjectId && linkTestTech2Id && linkTestTech3Id) {
+      console.log('   9e. Bulk linking multiple technologies...');
+      const bulkLinkResult = await ProjectCrudRepository.linkTechnologies(
+        linkTestProjectId,
+        [
+          { technologyId: linkTestTech2Id, usageContext: 'Backend runtime' },
+          { technologyId: linkTestTech3Id, usageContext: 'Primary database' }
+        ]
+      );
+      if (bulkLinkResult.success) {
+        console.log(`   ✅ Bulk link successful: ${bulkLinkResult.data} technologies linked`);
+      } else {
+        console.log(`   ❌ Bulk link failed: ${bulkLinkResult.error}`);
+      }
+    }
+
+    // Test 9f: Reverse lookup - get projects using a technology
+    if (linkTestTech1Id) {
+      console.log('   9f. Testing reverse lookup (projects using technology)...');
+      const reverseLookup = await TechnologyCrudRepository.getLinkedProjects(linkTestTech1Id);
+      if (reverseLookup.success && reverseLookup.data) {
+        console.log(`   ✅ Reverse lookup successful: Found ${reverseLookup.data.length} project(s)`);
+        if (reverseLookup.data.length > 0 && reverseLookup.data[0]) {
+          console.log(`      - Project: "${reverseLookup.data[0].title}" (Context: "${reverseLookup.data[0].usageContext}")`);
+        }
+      } else {
+        console.log(`   ❌ Reverse lookup failed: ${reverseLookup.error}`);
+      }
+    }
+
+    // Test 9g: Unlink single technology
+    if (linkTestProjectId && linkTestTech2Id) {
+      console.log('   9g. Unlinking single technology...');
+      const unlinkResult = await ProjectCrudRepository.unlinkTechnology(
+        linkTestProjectId,
+        linkTestTech2Id
+      );
+      if (unlinkResult.success) {
+        console.log('   ✅ Technology unlinked successfully');
+      } else {
+        console.log(`   ❌ Unlink failed: ${unlinkResult.error}`);
+      }
+    }
+
+    // Test 9h: Unlink already unlinked technology (idempotent)
+    if (linkTestProjectId && linkTestTech2Id) {
+      console.log('   9h. Unlinking already unlinked technology...');
+      const reUnlinkResult = await ProjectCrudRepository.unlinkTechnology(
+        linkTestProjectId,
+        linkTestTech2Id
+      );
+      if (reUnlinkResult.success) {
+        console.log('   ✅ Correctly handled already unlinked (idempotent)');
+      } else {
+        console.log(`   ❌ Should have succeeded: ${reUnlinkResult.error}`);
+      }
+    }
+
+    // Test 9i: Replace all technologies for a project
+    if (linkTestProjectId && linkTestTech2Id && linkTestTech3Id) {
+      console.log('   9i. Replacing all technologies for project...');
+      const replaceResult = await ProjectCrudRepository.replaceTechnologies(
+        linkTestProjectId,
+        [
+          { technologyId: linkTestTech2Id, usageContext: 'New backend framework' },
+          { technologyId: linkTestTech3Id, usageContext: 'New database' }
+        ]
+      );
+      if (replaceResult.success) {
+        console.log('   ✅ Technologies replaced successfully');
+      } else {
+        console.log(`   ❌ Replace failed: ${replaceResult.error}`);
+      }
+    }
+
+    // Test 9j: Unlink all technologies
+    if (linkTestProjectId) {
+      console.log('   9j. Unlinking all technologies from project...');
+      const unlinkAllResult = await ProjectCrudRepository.unlinkAllTechnologies(linkTestProjectId);
+      if (unlinkAllResult.success) {
+        console.log(`   ✅ All technologies unlinked: ${unlinkAllResult.data} removed`);
+      } else {
+        console.log(`   ❌ Unlink all failed: ${unlinkAllResult.error}`);
+      }
+    }
+
+    // Test 9k: Link with invalid project ID
+    if (linkTestTech1Id) {
+      console.log('   9k. Testing link with invalid project ID...');
+      const invalidProjectLink = await ProjectCrudRepository.linkTechnology(999999, linkTestTech1Id);
+      if (!invalidProjectLink.success) {
+        console.log('   ✅ Correctly rejected link with invalid project');
+      } else {
+        console.log('   ❌ Should have failed with invalid project');
+      }
+    }
+
+    // Test 9l: Link with invalid technology ID
+    if (linkTestProjectId) {
+      console.log('   9l. Testing link with invalid technology ID...');
+      const invalidTechLink = await ProjectCrudRepository.linkTechnology(linkTestProjectId, 999999);
+      if (!invalidTechLink.success) {
+        console.log('   ✅ Correctly rejected link with invalid technology');
+      } else {
+        console.log('   ❌ Should have failed with invalid technology');
+      }
+    }
+
+    // Clean up linking test data
+    console.log('   9m. Cleaning up linking test data...');
+    if (linkTestProjectId) {
+      await ProjectCrudRepository.delete(linkTestProjectId);
+    }
+    if (linkTestTech1Id) {
+      await TechnologyCrudRepository.delete(linkTestTech1Id);
+    }
+    if (linkTestTech2Id) {
+      await TechnologyCrudRepository.delete(linkTestTech2Id);
+    }
+    if (linkTestTech3Id) {
+      await TechnologyCrudRepository.delete(linkTestTech3Id);
+    }
+    console.log('   ✅ Linking test data cleaned up');
+
+    // ========================================
     // SUMMARY
     // ========================================
     console.log('\n' + '='.repeat(60));
@@ -366,8 +594,11 @@ async function testCrudOperations() {
     console.log('   ✓ Project CRUD (Create, Read, Update, Delete)');
     console.log('   ✓ Achievement CRUD (Create, Read, Update, Delete)');
     console.log('   ✓ Technology CRUD (Create, Read, Update, Delete)');
+    console.log('   ✓ Technology Linking (Link, Unlink, Bulk, Replace)');
+    console.log('   ✓ Reverse Lookup (Find projects by technology)');
     console.log('   ✓ Validation (Required fields, date formats, URLs)');
     console.log('   ✓ Edge cases (Non-existent records, invalid IDs)');
+    console.log('   ✓ Idempotency (Duplicate links, multiple unlinking)');
     console.log('   ✓ Cascading deletes (Project → Achievements)');
     console.log('\n💡 All test data has been cleaned up');
     console.log('   You can verify with: npm run test-db\n');

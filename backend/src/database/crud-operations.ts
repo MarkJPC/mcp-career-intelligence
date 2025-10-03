@@ -195,6 +195,296 @@ export class ProjectCrudRepository {
         }
     }
 
+    // ========================================
+    // TECHNOLOGY LINKING OPERATIONS
+    // ========================================
+
+    /**
+     * Link a technology to a project
+     * If already linked, updates usage_context only if different
+     */
+    static async linkTechnology(
+        projectId: number,
+        technologyId: number,
+        usageContext?: string
+    ): Promise<CrudResponse<boolean>> {
+        try {
+            // step 1: validate inputs
+            validateRequired(projectId, 'Project ID');
+            validateRequired(technologyId, 'Technology ID');
+
+            // step 2: verify project exists
+            const projectCheck = await DatabaseQuery.get(
+                'SELECT id FROM projects WHERE id = ?',
+                [projectId]
+            );
+            if (!projectCheck.success || !projectCheck.data) {
+                throw new ValidationError(`Project with ID ${projectId} does not exist`);
+            }
+
+            // step 3: verify technology exists
+            const techCheck = await DatabaseQuery.get(
+                'SELECT id FROM technologies WHERE id = ?',
+                [technologyId]
+            );
+            if (!techCheck.success || !techCheck.data) {
+                throw new ValidationError(`Technology with ID ${technologyId} does not exist`);
+            }
+
+            // step 4: check if link already exists
+            const existingLinkSql = `
+                SELECT id, usage_context
+                FROM project_technologies
+                WHERE project_id = ? AND technology_id = ?
+            `;
+            const existingLink = await DatabaseQuery.get<{ id: number; usage_context: string | null }>(
+                existingLinkSql,
+                [projectId, technologyId]
+            );
+
+            // step 5: if link exists, update only if context is different
+            if (existingLink.success && existingLink.data) {
+                const currentContext = existingLink.data.usage_context;
+                const newContext = usageContext || null;
+
+                if (currentContext !== newContext) {
+                    const updateSql = `
+                        UPDATE project_technologies
+                        SET usage_context = ?
+                        WHERE id = ?
+                    `;
+                    await DatabaseQuery.run(updateSql, [newContext, existingLink.data.id]);
+                    console.log(`Updated usage context for project ${projectId} - technology ${technologyId}`);
+                } else {
+                    console.log(`Technology ${technologyId} already linked to project ${projectId} with same context`);
+                }
+
+                return {
+                    success: true,
+                    data: true
+                };
+            }
+
+            // step 6: create new link
+            const insertSql = `
+                INSERT INTO project_technologies (project_id, technology_id, usage_context)
+                VALUES (?, ?, ?)
+            `;
+            const result = await DatabaseQuery.run(insertSql, [projectId, technologyId, usageContext || null]);
+
+            if (result.success) {
+                console.log(`Technology ${technologyId} linked to project ${projectId}`);
+                return {
+                    success: true,
+                    data: true
+                };
+            } else {
+                throw new Error('Failed to link technology to project');
+            }
+
+        } catch (error) {
+            console.error('Error linking technology to project:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
+        }
+    }
+
+    /**
+     * Unlink a technology from a project
+     * Idempotent - returns success even if link doesn't exist
+     */
+    static async unlinkTechnology(
+        projectId: number,
+        technologyId: number
+    ): Promise<CrudResponse<boolean>> {
+        try {
+            validateRequired(projectId, 'Project ID');
+            validateRequired(technologyId, 'Technology ID');
+
+            // check if link exists
+            const checkSql = `
+                SELECT id
+                FROM project_technologies
+                WHERE project_id = ? AND technology_id = ?
+            `;
+            const existingLink = await DatabaseQuery.get<{ id: number }>(checkSql, [projectId, technologyId]);
+
+            if (!existingLink.success || !existingLink.data) {
+                console.log(`Technology ${technologyId} already unlinked from project ${projectId}`);
+                return {
+                    success: true,
+                    data: true
+                };
+            }
+
+            // delete the link
+            const deleteSql = `
+                DELETE FROM project_technologies
+                WHERE project_id = ? AND technology_id = ?
+            `;
+            const result = await DatabaseQuery.run(deleteSql, [projectId, technologyId]);
+
+            if (result.success) {
+                console.log(`Technology ${technologyId} unlinked from project ${projectId}`);
+                return {
+                    success: true,
+                    data: true
+                };
+            } else {
+                throw new Error('Failed to unlink technology from project');
+            }
+
+        } catch (error) {
+            console.error('Error unlinking technology from project:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
+        }
+    }
+
+    /**
+     * Link multiple technologies to a project in one operation
+     * Returns count of successfully linked technologies
+     */
+    static async linkTechnologies(
+        projectId: number,
+        technologies: Array<{ technologyId: number; usageContext?: string }>
+    ): Promise<CrudResponse<number>> {
+        try {
+            validateRequired(projectId, 'Project ID');
+
+            if (!technologies || technologies.length === 0) {
+                throw new ValidationError('At least one technology must be provided');
+            }
+
+            // verify project exists
+            const projectCheck = await DatabaseQuery.get(
+                'SELECT id FROM projects WHERE id = ?',
+                [projectId]
+            );
+            if (!projectCheck.success || !projectCheck.data) {
+                throw new ValidationError(`Project with ID ${projectId} does not exist`);
+            }
+
+            let linkedCount = 0;
+
+            // link each technology
+            for (const tech of technologies) {
+                const result = await this.linkTechnology(projectId, tech.technologyId, tech.usageContext);
+                if (result.success) {
+                    linkedCount++;
+                }
+            }
+
+            console.log(`Linked ${linkedCount} technologies to project ${projectId}`);
+            return {
+                success: true,
+                data: linkedCount
+            };
+
+        } catch (error) {
+            console.error('Error linking multiple technologies:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
+        }
+    }
+
+    /**
+     * Unlink all technologies from a project
+     * Returns count of unlinked technologies
+     */
+    static async unlinkAllTechnologies(projectId: number): Promise<CrudResponse<number>> {
+        try {
+            validateRequired(projectId, 'Project ID');
+
+            // get count of current links
+            const countSql = `
+                SELECT COUNT(*) as count
+                FROM project_technologies
+                WHERE project_id = ?
+            `;
+            const countResult = await DatabaseQuery.get<{ count: number }>(countSql, [projectId]);
+            const unlinkCount = countResult.data?.count || 0;
+
+            // delete all links
+            const deleteSql = 'DELETE FROM project_technologies WHERE project_id = ?';
+            const result = await DatabaseQuery.run(deleteSql, [projectId]);
+
+            if (result.success) {
+                console.log(`Unlinked ${unlinkCount} technologies from project ${projectId}`);
+                return {
+                    success: true,
+                    data: unlinkCount
+                };
+            } else {
+                throw new Error('Failed to unlink technologies');
+            }
+
+        } catch (error) {
+            console.error('Error unlinking all technologies:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
+        }
+    }
+
+    /**
+     * Replace all technologies for a project (transactional)
+     * Removes all existing links and creates new ones
+     */
+    static async replaceTechnologies(
+        projectId: number,
+        technologies: Array<{ technologyId: number; usageContext?: string }>
+    ): Promise<CrudResponse<boolean>> {
+        try {
+            validateRequired(projectId, 'Project ID');
+
+            // verify project exists
+            const projectCheck = await DatabaseQuery.get(
+                'SELECT id FROM projects WHERE id = ?',
+                [projectId]
+            );
+            if (!projectCheck.success || !projectCheck.data) {
+                throw new ValidationError(`Project with ID ${projectId} does not exist`);
+            }
+
+            // step 1: remove all existing links
+            const unlinkResult = await this.unlinkAllTechnologies(projectId);
+            if (!unlinkResult.success) {
+                throw new Error('Failed to remove existing technology links');
+            }
+
+            // step 2: add new links (if any provided)
+            if (technologies && technologies.length > 0) {
+                const linkResult = await this.linkTechnologies(projectId, technologies);
+                if (!linkResult.success) {
+                    throw new Error('Failed to link new technologies');
+                }
+                console.log(`Replaced technologies for project ${projectId}: ${linkResult.data} technologies linked`);
+            } else {
+                console.log(`Removed all technologies from project ${projectId}`);
+            }
+
+            return {
+                success: true,
+                data: true
+            };
+
+        } catch (error) {
+            console.error('Error replacing technologies:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
+        }
+    }
+
     // DELETE: Remove project and all related data (cascades to achievements and project_technologies)
     static async delete(projectId: number): Promise<CrudResponse<boolean>> {
         try {
@@ -543,6 +833,70 @@ export class TechnologyCrudRepository {
 
         } catch (error) {
             console.error('Error updating technology:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
+        }
+    }
+
+    /**
+     * Get all projects that use a specific technology (reverse lookup)
+     * Returns array of projects with usage context
+     */
+    static async getLinkedProjects(technologyId: number): Promise<CrudResponse<Array<{
+        projectId: number;
+        title: string;
+        company: string;
+        usageContext: string | null;
+    }>>> {
+        try {
+            validateRequired(technologyId, 'Technology ID');
+
+            // verify technology exists
+            const techCheck = await DatabaseQuery.get(
+                'SELECT id FROM technologies WHERE id = ?',
+                [technologyId]
+            );
+            if (!techCheck.success || !techCheck.data) {
+                return {
+                    success: false,
+                    error: `Technology with ID ${technologyId} does not exist`
+                };
+            }
+
+            // get all linked projects
+            const sql = `
+                SELECT
+                    p.id as projectId,
+                    p.title,
+                    p.company,
+                    pt.usage_context as usageContext
+                FROM projects p
+                INNER JOIN project_technologies pt ON p.id = pt.project_id
+                WHERE pt.technology_id = ?
+                ORDER BY p.start_date DESC
+            `;
+
+            const result = await DatabaseQuery.all<{
+                projectId: number;
+                title: string;
+                company: string;
+                usageContext: string | null;
+            }>(sql, [technologyId]);
+
+            if (result.success) {
+                console.log(`Found ${result.data?.length || 0} projects using technology ${technologyId}`);
+                return {
+                    success: true,
+                    data: result.data || []
+                };
+            } else {
+                throw new Error('Failed to retrieve linked projects');
+            }
+
+        } catch (error) {
+            console.error('Error getting linked projects:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred'
